@@ -1,0 +1,91 @@
+import webbrowser
+import os
+import html
+from datetime import datetime
+
+# Liste pour stocker les réponses
+reponses_utilisateur = []
+
+continu = True
+
+while continu:
+    # Demander le prénom et le nom
+    prenom = input("Quel est votre prénom ? ").strip()
+    nom = input("Quel est votre nom ? ").strip()
+
+    # Vérifier si c'est "Ali Camara"
+    if prenom.lower() == "ali" and nom.lower() == "camara":
+        print(f"Te revoilà, {prenom} {nom} !")
+    else:
+        print(f"Bonjour, {prenom} {nom} !")
+
+    # Demander si l'utilisateur souhaite continuer
+    reponse = input("Souhaitez-vous continuer ? (oui/non) ").strip().lower()
+    while reponse not in ["oui", "non"]:
+        reponse = input("Réponds par 'oui' ou 'non' : ").strip().lower()
+
+    # Enregistrer la date et l'heure actuelles
+    date_heure = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+
+    # Stocker la réponse
+    reponses_utilisateur.append({
+        "prenom": prenom,
+        "nom": nom,
+        "reponse": reponse,
+        "date_heure": date_heure
+    })
+
+    if reponse != "oui":
+        continu = False
+        print("Au revoir !")
+
+# Génération du HTML
+def generer_html(reponses):
+    contenu = """
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <meta charset="UTF-8">
+        <title>Réponses de l'utilisateur</title>
+        <style>
+            body { font-family: Arial, sans-serif; margin: 20px; }
+            h1 { color: #333; }
+            table { border-collapse: collapse; width: 80%; }
+            th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+            th { background-color: #f2f2f2; }
+            tr:nth-child(even) { background-color: #f9f9f9; }
+        </style>
+    </head>
+    <body>
+        <h1>Historique des réponses</h1>
+        <table>
+            <tr>
+                <th>Prénom</th>
+                <th>Nom</th>
+                <th>Réponse</th>
+                <th>Date et Heure</th>
+            </tr>
+    """
+    for r in reponses:
+        contenu += f"""
+            <tr>
+                <td>{html.escape(r['prenom'])}</td>
+                <td>{html.escape(r['nom'])}</td>
+                <td>{html.escape(r['reponse'])}</td>
+                <td>{html.escape(r['date_heure'])}</td>
+            </tr>
+        """
+    contenu += """
+        </table>
+    </body>
+    </html>
+    """
+    return contenu
+
+# Créer le fichier HTML
+fichier_html = "reponses_utilisateur.html"
+with open(fichier_html, "w", encoding="utf-8") as f:
+    f.write(generer_html(reponses_utilisateur))
+
+# Ouvrir dans le navigateur
+webbrowser.open("file://" + os.path.abspath(fichier_html))
