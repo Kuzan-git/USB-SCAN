@@ -1,0 +1,245 @@
+import webbrowser
+import os
+import html
+from datetime import datetime
+import platform
+import subprocess
+
+def detecter_ports_usb():
+    """Détecte le nombre de ports USB selon le système d'exploitation"""
+    systeme = platform.system()
+    ports_usb = []
+    
+    try:
+        if systeme == "Windows":
+            # Utilise wmic pour lister les contrôleurs USB
+            result = subprocess.run(
+                ['wmic', 'path', 'Win32_USBHub', 'get', 'DeviceID'],
+                capture_output=True,
+                text=True,
+                timeout=5
+            )
+            lines = result.stdout.strip().split('\n')[1:]  # Ignore l'en-tête
+            ports_usb = [line.strip() for line in lines if line.strip()]
+            
+        elif systeme == "Linux":
+            # Utilise lsusb pour lister les périphériques USB
+            result = subprocess.run(
+                ['lsusb'],
+                capture_output=True,
+                text=True,
+                timeout=5
+            )
+            lines = result.stdout.strip().split('\n')
+            ports_usb = [line.strip() for line in lines if line.strip()]
+            
+        elif systeme == "Darwin":  # macOS
+            # Utilise system_profiler pour lister les périphériques USB
+            result = subprocess.run(
+                ['system_profiler', 'SPUSBDataType'],
+                capture_output=True,
+                text=True,
+                timeout=10
+            )
+            # Compte les lignes contenant "Product ID" comme indicateur de périphériques
+            lines = result.stdout.split('\n')
+            ports_usb = [line.strip() for line in lines if 'Product ID' in line]
+    
+    except subprocess.TimeoutExpired:
+        print("⚠️ Timeout lors de la détection USB")
+        return 0, []
+    except FileNotFoundError:
+        print(f"⚠️ Commande de détection USB non disponible sur {systeme}")
+        return 0, []
+    except Exception as e:
+        print(f"⚠️ Erreur lors de la détection USB : {e}")
+        return 0, []
+    
+    return len(ports_usb), ports_usb
+
+# Liste pour stocker les réponses
+reponses_utilisateur = []
+
+continu = True
+
+while continu:
+    prenom = input("Quel est votre prénom ? ").strip()
+    nom = input("Quel est votre nom ? ").strip()
+    numero_poste = input("Quel est le numéro de votre poste ? ").strip()
+
+    # Vérification d'identité
+    if prenom.lower() == "ali" and nom.lower() == "camara":
+        print(f"Te revoilà, {prenom} {nom} !")
+    else:
+        print(f"Bonjour, {prenom} {nom} !")
+
+    # --- Analyse USB réelle ---
+    print("\n🔍 Analyse du système en cours...\n")
+
+    # Informations système de base
+    systeme = platform.system()
+    version = platform.version()
+    processeur = platform.processor()
+
+    # Détection réelle des ports USB
+    print("⏳ Détection des périphériques USB...")
+    nb_usb, details_usb = detecter_ports_usb()
+
+    print(f"\n✅ Système détecté : {systeme}")
+    print(f"✅ Version : {version}")
+    print(f"✅ Processeur : {processeur}")
+    print(f"✅ Nombre de périphériques USB détectés : {nb_usb}")
+    
+    if details_usb:
+        print("\n📋 Détails des périphériques USB :")
+        for i, device in enumerate(details_usb[:5], 1):  # Affiche les 5 premiers
+            print(f"  {i}. {device[:80]}...")  # Tronque si trop long
+        if len(details_usb) > 5:
+            print(f"  ... et {len(details_usb) - 5} autre(s)")
+
+    # Enregistrer la date et l'heure exactes
+    date_heure = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+
+    # Sauvegarde dans la liste
+    reponses_utilisateur.append({
+        "prenom": prenom,
+        "nom": nom,
+        "numero_poste": numero_poste,
+        "systeme": systeme,
+        "processeur": processeur,
+        "ports_usb": nb_usb,
+        "details_usb": details_usb,
+        "date_heure": date_heure
+    })
+
+    # Demander si on continue
+    reponse = input("\n❓ Souhaitez-vous refaire une analyse ? (oui/non) ").strip().lower()
+    while reponse not in ["oui", "non"]:
+        reponse = input("Réponds par 'oui' ou 'non' : ").strip().lower()
+
+    if reponse != "oui":
+        continu = False
+        print("\n👋 Fin de l'analyse. Au revoir !")
+
+# --- Génération du HTML ---
+def generer_html(reponses):
+    contenu = """
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <meta charset="UTF-8">
+        <title>USB Scan - Rapport d'analyse</title>
+        <style>
+            body { 
+                font-family: 'Segoe UI', Tahoma, sans-serif; 
+                margin: 0;
+                padding: 20px;
+                background: #f5f5f5;
+            }
+            .header {
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                color: white;
+                padding: 30px;
+                border-radius: 10px;
+                margin-bottom: 30px;
+                box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            }
+            .header h1 {
+                margin: 0;
+                font-size: 32px;
+                font-weight: 300;
+                letter-spacing: 2px;
+            }
+            .header p {
+                margin: 5px 0 0 0;
+                opacity: 0.9;
+                font-size: 14px;
+            }
+            .container {
+                background: white;
+                padding: 20px;
+                border-radius: 10px;
+                box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            }
+            table { 
+                border-collapse: collapse; 
+                width: 100%;
+            }
+            th, td { 
+                border: 1px solid #e0e0e0; 
+                padding: 12px; 
+                text-align: left; 
+            }
+            th { 
+                background: #667eea;
+                color: white;
+                font-weight: 500;
+            }
+            tr:nth-child(even) { background-color: #f9f9f9; }
+            tr:hover { background-color: #f0f0f0; }
+            .details {
+                font-size: 11px;
+                color: #666;
+                max-width: 300px;
+                overflow: hidden;
+                text-overflow: ellipsis;
+            }
+            .badge {
+                background: #667eea;
+                color: white;
+                padding: 4px 8px;
+                border-radius: 12px;
+                font-size: 12px;
+                font-weight: bold;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="header">
+            <h1>USB SCAN</h1>
+            <p>Historique des analyses système</p>
+        </div>
+        <div class="container">
+            <table>
+                <tr>
+                    <th>Prénom</th>
+                    <th>Nom</th>
+                    <th>N° Poste</th>
+                    <th>Système</th>
+                    <th>Processeur</th>
+                    <th>Ports USB</th>
+                    <th>Date et Heure</th>
+                </tr>
+    """
+    for r in reponses:
+        details_html = ""
+        if r['details_usb']:
+            details_preview = "<br>".join([html.escape(d[:60]) + "..." for d in r['details_usb'][:3]])
+            details_html = f'<div class="details" title="{html.escape(str(r["details_usb"]))}">{details_preview}</div>'
+        
+        contenu += f"""
+            <tr>
+                <td>{html.escape(r['prenom'])}</td>
+                <td>{html.escape(r['nom'])}</td>
+                <td>{html.escape(r['numero_poste'])}</td>
+                <td>{html.escape(r['systeme'])}</td>
+                <td>{html.escape(r['processeur'][:40])}...</td>
+                <td><span class="badge">{html.escape(str(r['ports_usb']))}</span>{details_html}</td>
+                <td>{html.escape(r['date_heure'])}</td>
+            </tr>
+        """
+    contenu += """
+            </table>
+        </div>
+    </body>
+    </html>
+    """
+    return contenu
+
+# Créer le fichier HTML et l'ouvrir
+fichier_html = "rapport_usb.html"
+with open(fichier_html, "w", encoding="utf-8") as f:
+    f.write(generer_html(reponses_utilisateur))
+
+print(f"\n📄 Rapport généré : {os.path.abspath(fichier_html)}")
+webbrowser.open("file://" + os.path.abspath(fichier_html))
