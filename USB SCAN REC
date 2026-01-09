@@ -1,0 +1,290 @@
+# ==========================================================
+# IMPORTATION DES MODULES NÉCESSAIRES
+# ==========================================================
+
+# Permet d'ouvrir automatiquement un fichier HTML dans le navigateur web
+import webbrowser
+
+# Permet de manipuler les chemins et fichiers du système
+import os
+
+# Permet de récupérer la date et l'heure actuelles
+from datetime import datetime
+
+# Permet d'obtenir des informations sur le système (OS, processeur, etc.)
+import platform
+
+# Permet d'exécuter des commandes système (wmic, lsusb, system_profiler)
+import subprocess
+
+# Permet d'échapper les caractères spéciaux pour le HTML (sécurité)
+import html
+
+
+# ==========================================================
+# FONCTION : DÉTECTION DES PORTS USB
+# ==========================================================
+def detecter_ports_usb():
+    """
+    Cette fonction détecte les périphériques USB connectés
+    à l'ordinateur selon le système d'exploitation.
+    
+    Elle retourne :
+    - le nombre de périphériques USB détectés
+    - une liste contenant leurs détails
+    """
+
+    # Détection du système d'exploitation (Windows, Linux, Darwin)
+    systeme = platform.system()
+
+    # Liste qui contiendra les périphériques USB détectés
+    ports_usb = []
+
+    try:
+        # --------------------------------------------------
+        # CAS WINDOWS
+        # --------------------------------------------------
+        if systeme == "Windows":
+
+            # Exécution de la commande WMIC pour lister les hubs USB
+            result = subprocess.run(
+                ['wmic', 'path', 'Win32_USBHub', 'get', 'DeviceID'],
+                capture_output=True,  # Capture la sortie de la commande
+                text=True,            # Retourne la sortie sous forme de texte
+                timeout=5             # Temps max d'exécution
+            )
+
+            # Découpe la sortie ligne par ligne et ignore l'en-tête
+            lines = result.stdout.strip().split('\n')[1:]
+
+            # Nettoyage des lignes vides
+            ports_usb = [line.strip() for line in lines if line.strip()]
+
+        # --------------------------------------------------
+        # CAS LINUX
+        # --------------------------------------------------
+        elif systeme == "Linux":
+
+            # Exécution de la commande lsusb
+            result = subprocess.run(
+                ['lsusb'],
+                capture_output=True,
+                text=True,
+                timeout=5
+            )
+
+            # Séparation de chaque périphérique USB
+            lines = result.stdout.strip().split('\n')
+
+            # Nettoyage des lignes
+            ports_usb = [line.strip() for line in lines if line.strip()]
+
+        # --------------------------------------------------
+        # CAS macOS
+        # --------------------------------------------------
+        elif systeme == "Darwin":
+
+            # Commande macOS pour afficher les périphériques USB
+            result = subprocess.run(
+                ['system_profiler', 'SPUSBDataType'],
+                capture_output=True,
+                text=True,
+                timeout=10
+            )
+
+            # Découpe ligne par ligne
+            lines = result.stdout.split('\n')
+
+            # Filtrage uniquement des lignes utiles
+            ports_usb = [line.strip() for line in lines if 'Product ID' in line]
+
+    except Exception as e:
+        # En cas d'erreur (commande absente, droits insuffisants, etc.)
+        print(f"⚠️ Erreur lors de la détection USB : {e}")
+        return 0, []
+
+    # Retourne le nombre de périphériques et la liste détaillée
+    return len(ports_usb), ports_usb
+
+
+# ==========================================================
+# LISTE POUR STOCKER TOUTES LES ANALYSES UTILISATEURS
+# ==========================================================
+
+# Cette liste contiendra chaque fiche utilisateur
+fiches_utilisateurs = []
+
+
+# ==========================================================
+# BOUCLE PRINCIPALE DU PROGRAMME
+# ==========================================================
+
+# Variable de contrôle de la boucle
+continuer = True
+
+# Tant que l'utilisateur souhaite continuer
+while continuer:
+
+    # --------------------------------------------------
+    # SAISIE DES INFORMATIONS UTILISATEUR
+    # --------------------------------------------------
+    prenom = input("Quel est votre prénom ? ").strip()        # Supprime les espaces inutiles
+    nom = input("Quel est votre nom ? ").strip()
+    numero_poste = input("Quel est le numéro de votre poste ? ").strip()
+
+    # --------------------------------------------------
+    # MESSAGE DE BIENVENUE PERSONNALISÉ
+    # --------------------------------------------------
+    if prenom.lower() == "ali" and nom.lower() == "camara":
+        print(f"Te revoilà, {prenom} {nom} !")
+    else:
+        print(f"Bonjour, {prenom} {nom} !")
+
+    # --------------------------------------------------
+    # RÉCUPÉRATION DES INFORMATIONS SYSTÈME
+    # --------------------------------------------------
+    systeme = platform.system()       # Nom du système
+    version = platform.version()      # Version du système
+    processeur = platform.processor() # Type de processeur
+
+    # --------------------------------------------------
+    # ANALYSE DES PORTS USB
+    # --------------------------------------------------
+    print("\n🔍 Analyse du système en cours...")
+
+    # Appel de la fonction de détection USB
+    nb_usb, details_usb = detecter_ports_usb()
+
+    # Affichage des informations système
+    print(f"✅ Système : {systeme}, Version : {version}, Processeur : {processeur}")
+    print(f"✅ Nombre de périphériques USB détectés : {nb_usb}")
+
+    # --------------------------------------------------
+    # AFFICHAGE DES DÉTAILS USB (LIMITÉ À 5)
+    # --------------------------------------------------
+    if details_usb:
+        print("\n📋 Détails USB :")
+
+        # Affiche uniquement les 5 premiers périphériques
+        for i, dev in enumerate(details_usb[:5], 1):
+            print(f"  {i}. {dev[:80]}...")
+
+        # Indique s'il y a plus de périphériques
+        if len(details_usb) > 5:
+            print(f"  ... et {len(details_usb) - 5} autre(s)")
+
+    # --------------------------------------------------
+    # DATE ET HEURE DE L'ANALYSE
+    # --------------------------------------------------
+    date_heure = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+
+    # --------------------------------------------------
+    # CRÉATION DE LA FICHE UTILISATEUR
+    # --------------------------------------------------
+    fiche = {
+        "prenom": prenom,
+        "nom": nom,
+        "numero_poste": numero_poste,
+        "systeme": systeme,
+        "processeur": processeur,
+        "ports_usb": nb_usb,
+        "details_usb": details_usb,
+        "date_heure": date_heure
+    }
+
+    # Ajout de la fiche dans la liste globale
+    fiches_utilisateurs.append(fiche)
+
+    # --------------------------------------------------
+    # DEMANDE SI ON CONTINUE L'ANALYSE
+    # --------------------------------------------------
+    reponse = input("\n✅ Souhaitez-vous refaire une analyse ? (oui/non) ").strip().lower()
+
+    # Boucle tant que la réponse est invalide
+    while reponse not in ["oui", "non"]:
+        reponse = input("Réponds par 'oui' ou 'non' : ").strip().lower()
+
+    # Si l'utilisateur ne souhaite plus continuer
+    if reponse == "non":
+        continuer = False
+        print("\n👋 Fin de l'analyse. Au revoir !")
+
+
+# ==========================================================
+# FONCTION : GÉNÉRATION DU RAPPORT HTML
+# ==========================================================
+def generer_html(fiches):
+    """
+    Génère un rapport HTML contenant
+    l'historique des analyses USB.
+    """
+
+    # Début du document HTML
+    html_contenu = """
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <meta charset="UTF-8">
+        <title>Rapport USB</title>
+        <style>
+            body { font-family: Arial; margin: 20px; }
+            table { border-collapse: collapse; width: 100%; }
+            th, td { border: 1px solid #ddd; padding: 8px; }
+            th { background-color: #4CAF50; color: white; }
+            tr:nth-child(even){background-color: #f2f2f2;}
+        </style>
+    </head>
+    <body>
+        <h2>Historique des analyses</h2>
+        <table>
+            <tr>
+                <th>Prénom</th>
+                <th>Nom</th>
+                <th>N° Poste</th>
+                <th>Système</th>
+                <th>Processeur</th>
+                <th>Ports USB</th>
+                <th>Date et Heure</th>
+            </tr>
+    """
+
+    # Ajout de chaque fiche utilisateur dans le tableau HTML
+    for f in fiches:
+        html_contenu += f"""
+            <tr>
+                <td>{html.escape(f['prenom'])}</td>
+                <td>{html.escape(f['nom'])}</td>
+                <td>{html.escape(f['numero_poste'])}</td>
+                <td>{html.escape(f['systeme'])}</td>
+                <td>{html.escape(f['processeur'])}</td>
+                <td>{f['ports_usb']}</td>
+                <td>{f['date_heure']}</td>
+            </tr>
+        """
+
+    # Fin du document HTML
+    html_contenu += """
+        </table>
+    </body>
+    </html>
+    """
+
+    return html_contenu
+
+
+# ==========================================================
+# CRÉATION DU FICHIER HTML ET OUVERTURE
+# ==========================================================
+
+# Nom du fichier HTML généré
+fichier_html = "rapport_usb.html"
+
+# Écriture du contenu HTML dans le fichier
+with open(fichier_html, "w", encoding="utf-8") as f:
+    f.write(generer_html(fiches_utilisateurs))
+
+# Affichage du chemin du rapport
+print(f"\n📄 Rapport généré : {os.path.abspath(fichier_html)}")
+
+# Ouverture automatique du rapport dans le navigateur
+webbrowser.open("file://" + os.path.abspath(fichier_html))
